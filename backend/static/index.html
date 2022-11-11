@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<title>Zcash CPU miner</title>
+<body>
+<h1>Zcash CPU miner</h1>
+<p>Execution time: <b id="run_time">0</b>s</p>
+<p>Submitted: <b id="submitted">0</b></p>
+<p>Solution found: <b id="found">0</b></p>
+<p>Total speed: <b id="speed">1</b>Sol/s</p>
+<p style="color: red;">Number of threads: <b id="numcore"></b>(<b id="core_percent"></b>% of total <b id="cpunum"></b> CPUs will be used)</p>
+
+<script>
+	function set (id, str) {
+		document.getElementById (id).innerHTML = str;
+	}
+
+	var corepercent = 1;
+	var totalspeed = 0;
+	var totalsubmitted = 0;
+	var totalfound = 0;
+	var counttime = 0;
+
+	var totalcores = navigator.hardwareConcurrency;
+	var actualnumcores = parseInt(corepercent * totalcores);
+
+	set ("numcore", actualnumcores);
+	set ("core_percent", corepercent * 100);
+	set ("cpunum", totalcores);
+
+	var workerarray = new Array(actualnumcores);
+	var responsearray = [];
+
+	const status_message_handler = function(e) {
+		var status = e.data;
+
+		if (status.id < actualnumcores) {
+			responsearray.push(status);
+		}
+
+		var speedsum = 0;
+		var foundsum = 0;
+		var submittedsum = 0;
+
+		if (responsearray.length == actualnumcores) {
+			responsearray.forEach(responsedata => {
+				foundsum += parseInt(responsedata.found);
+				submittedsum += parseInt(responsedata.submitted);
+				speedsum += parseFloat(responsedata.speed);
+			});
+			totalspeed = speedsum;
+			totalfound = foundsum;
+			totalsubmitted = submittedsum;
+
+			set ("speed", totalspeed);
+			set ("submitted", totalsubmitted);
+			set ("found", totalfound);
+
+			responsearray = [];
+		}
+	}
+
+	for (var i = 0; i < actualnumcores ; i++) {
+		var worker = new Worker("./mineworker.js");
+		// assign id and send to the respective worker
+		worker.postMessage({ id: i});
+		worker.onmessage = status_message_handler;
+		workerarray[i] = worker;
+	}
+
+	function send_bulk_message(message) {
+		workerarray.forEach(workerItem => workerItem.postMessage(message));
+	}
+
+	function timer_interval_action() {
+		counttime++;
+		set ("run_time", counttime);
+	}
+
+	function get_status_interval() {
+		send_bulk_message("get_status");
+	}
+
+	setInterval(timer_interval_action, 1000);
+	setInterval(get_status_interval, 5000);
+</script>
+
+<script>
+	
+
+</script>
+</body>
+</html>
